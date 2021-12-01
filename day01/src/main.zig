@@ -21,6 +21,9 @@ pub fn main() anyerror!void {
 
     const part1 = depthIncrease(&values);
     try stdout.print("Part 1: {d}\n", .{part1});
+
+    const part2 = slidingWindow(&values);
+    try stdout.print("Part 2: {d}\n", .{part2});
 }
 
 fn parseInput(allocator: *std.mem.Allocator, str: []const u8) ![]const u64 {
@@ -55,7 +58,24 @@ fn depthIncrease(depths: *[]const u64) !i64 {
     return count;
 }
 
-test "part1 test" {
+fn slidingWindow(depths: *[]const u64) !i64 {
+    var count: i64 = 0;
+    var last_window = depths.*[0] + depths.*[1] + depths.*[2];
+    for (depths.*[3..]) |curr_value, idx| {
+        if (idx == (depths.len - 3)) {
+            break;
+        }
+        var drop_value = depths.*[(idx + 3) - 3];
+        var curr_window = last_window + curr_value - drop_value;
+        if (curr_window > last_window) {
+            count = count + 1;
+        }
+        last_window = curr_window;
+    }
+    return count;
+}
+
+test "part1/part2 test" {
     const test_input =
         \\199
         \\200
@@ -87,4 +107,7 @@ test "part1 test" {
 
     const result = try depthIncrease(&values);
     try std.testing.expect(7 == result);
+
+    const result2 = try slidingWindow(&values);
+    try std.testing.expect(5 == result2);
 }

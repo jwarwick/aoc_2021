@@ -48,7 +48,7 @@ Your puzzle answer was `1527`.
 
 The first half of this puzzle is complete! It provides one gold star: *
 
---- Part Two ---
+## Part Two
 Considering every single measurement isn't as useful as you expected: there's just too much noise in the data.
 
 Instead, consider sums of a three-measurement sliding window. Again considering the above example:
@@ -82,3 +82,7 @@ H: 792 (increased)
 In this example, there are 5 sums that are larger than the previous sum.
 
 Consider sums of a three-measurement sliding window. How many sums are larger than the previous sum?
+
+Your puzzle answer was 1575.
+
+Both parts of this puzzle are complete! They provide two gold stars: **
