@@ -6,15 +6,10 @@ pub fn main() anyerror!void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     defer _ = gpa.deinit();
 
-    const allocator = &gpa.allocator;
+    const allocator = gpa.allocator();
 
-    var file = try std.fs.cwd().openFile("input.txt", .{});
-    defer file.close();
-
-    const contents = try file.reader().readAllAlloc(allocator, 409600);
-    defer allocator.free(contents);
-
-    var values = try parseInput(allocator, contents);
+    const str = @embedFile("../input.txt");
+    var values = try parseInput(allocator, str);
     defer allocator.free(values);
 
     const stdout = std.io.getStdOut().writer();
@@ -26,7 +21,7 @@ pub fn main() anyerror!void {
     try stdout.print("Part 2: {d}\n", .{part2});
 }
 
-fn parseInput(allocator: *std.mem.Allocator, str: []const u8) ![]const u64 {
+fn parseInput(allocator: std.mem.Allocator, str: []const u8) ![]const u64 {
     var nums = std.ArrayList(u64).init(allocator);
     defer nums.deinit();
 
@@ -76,18 +71,7 @@ fn slidingWindow(depths: *[]const u64) !i64 {
 }
 
 test "part1/part2 test" {
-    const test_input =
-        \\199
-        \\200
-        \\208
-        \\210
-        \\200
-        \\207
-        \\240
-        \\269
-        \\260
-        \\263
-    ;
+    const test_input = @embedFile("../test.txt");
     const test_values = [_]u64{
         199,
         200,
