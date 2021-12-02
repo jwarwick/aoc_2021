@@ -60,6 +60,23 @@ const Course = struct {
         }
         return distance * depth;
     }
+
+    pub fn followAim(self: *const Course) u64 {
+        var distance: u64 = 0;
+        var depth: u64 = 0;
+        var aim: u64 = 0;
+        for (self.steps) |step| {
+            switch (step.dir) {
+                Direction.up => aim = aim - step.distance,
+                Direction.down => aim = aim + step.distance,
+                Direction.forward => {
+                    distance = distance + step.distance;
+                    depth = depth + (step.distance * aim);
+                },
+            }
+        }
+        return distance * depth;
+    }
 };
 
 pub fn main() anyerror!void {
@@ -77,15 +94,15 @@ pub fn main() anyerror!void {
     const part1 = c.follow();
     try stdout.print("Part 1: {d}\n", .{part1});
 
-    // const part2 = slidingWindow(&values);
-    // try stdout.print("Part 2: {d}\n", .{part2});
+    const part2 = c.followAim();
+    try stdout.print("Part 2: {d}\n", .{part2});
 }
 
 test "basic test" {
     const str = @embedFile("../test.txt");
     var c = try Course.load(test_allocator, str);
-    defer test_allocator.free(c);
+    // defer test_allocator.free(c);
 
-    const result = c.follow();
-    try expect(150 == result);
+    try expect(150 == c.follow());
+    try expect(900 == c.followAim());
 }
