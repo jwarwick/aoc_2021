@@ -32,54 +32,60 @@ const Count = struct {
     }
 };
 
-const DiagnosticReport = struct {
+const RowSet = struct {
+    const Self = @This();
     counts: []Count,
     rows: [][]const u8,
     allocator: Allocator,
 
-    pub fn load(allocator: Allocator, str: []const u8) !DiagnosticReport {
+    pub fn load(allocator: Allocator, rowSlice: [][]const u8) !Self {
         var list = std.ArrayList(Count).init(allocator);
         defer list.deinit();
         var rows = std.ArrayList([]const u8).init(allocator);
         defer rows.deinit();
 
-        var iter = std.mem.split(u8, str, "\n");
-        while (iter.next()) |line| {
+        for (rowSlice) |line| {
             if (line.len != 0) {
                 if (list.items.len == 0) {
-                    try list.ensureTotalCapacity(line.len);
-                    for (line) |_| {
-                        try list.append(Count{});
-                    }
+                    try list.appendNTimes(Count{}, line.len);
                 }
                 for (line) |c, idx| {
                     list.items[idx].add(c);
-                    try rows.append(line);
                 }
+                try rows.append(line);
             }
         }
 
-        return DiagnosticReport{ .allocator = allocator, .counts = list.toOwnedSlice(), .rows = rows.toOwnedSlice() };
+        return Self{ .allocator = allocator, .counts = list.toOwnedSlice(), .rows = rows.toOwnedSlice() };
     }
 
-    pub fn deinit(self: *const DiagnosticReport) void {
+    pub fn deinit(self: Self) void {
         self.allocator.free(self.counts);
         self.allocator.free(self.rows);
     }
 
-    pub fn lifeSupport(self: *const DiagnosticReport) !u64 {
-        var gen = try self.generator();
-        var scrub = try self.scrubber();
-        return gen * scrub;
+    pub fn gamma(self: *const Self) u64 {
+        var g: u64 = 0;
+        for (self.counts) |c| {
+            var m = c.max();
+            g = (g << 1) | m;
+        }
+
+        return g;
     }
 
-    pub fn powerConsumption(self: *const DiagnosticReport) u64 {
-        return self.gamma() * self.epsilon();
+    pub fn epsilon(self: *const Self) u64 {
+        var g: u64 = 0;
+        for (self.counts) |c| {
+            var m = c.min();
+            g = (g << 1) | m;
+        }
+
+        return g;
     }
 
-    fn generator(self: *const DiagnosticReport) !u64 {
+    pub fn generator(self: *const Self) !u64 {
         var valid: []const usize = undefined;
-        // defer Allocator.free(valid);
 
         var validList = std.ArrayList(usize).init(self.allocator);
         defer validList.deinit();
@@ -94,12 +100,12 @@ const DiagnosticReport = struct {
             std.debug.print("\nREMAINING STRINGS:\n", .{});
 
             for (valid) |v| {
-                std.debug.print("\t{s}\n", .{v});
+                std.debug.print("\t{s}\n", .{self.rows[v]});
             }
             std.debug.print("\n\n", .{});
             if (valid.len == 1) {
-                // return row to number
                 std.debug.print("\nFOUND MATCH: {s}\n", .{self.rows[valid[0]]});
+                // return row to number
                 return valid[0];
             }
 
@@ -120,32 +126,54 @@ const DiagnosticReport = struct {
             }
             // Allocator.free(valid);
             valid = nextValid.toOwnedSlice();
+
+            if (valid.len == 1) {
+                // return row to number
+                std.debug.print("\nFOUND MATCH: {s}\n", .{self.rows[valid[0]]});
+                return valid[0];
+            }
         }
-        return self.gamma();
+        return error{Oops};
+    }
+};
+
+const DiagnosticReport = struct {
+    const Self = @This();
+    rows: RowSet,
+    allocator: Allocator,
+
+    pub fn load(allocator: Allocator, str: []const u8) !Self {
+        var rows = std.ArrayList([]const u8).init(allocator);
+        defer rows.deinit();
+
+        var iter = std.mem.split(u8, str, "\n");
+        while (iter.next()) |line| {
+            if (line.len != 0) {
+                try rows.append(line);
+            }
+        }
+
+        var rowSet = try RowSet.load(allocator, rows.items);
+
+        return Self{ .allocator = allocator, .rows = rowSet };
     }
 
-    fn scrubber(self: *const DiagnosticReport) !u64 {
-        return self.gamma();
+    pub fn deinit(self: Self) void {
+        self.rows.deinit();
     }
 
-    fn gamma(self: *const DiagnosticReport) u64 {
-        var g: u64 = 0;
-        for (self.counts) |c| {
-            var m = c.max();
-            g = (g << 1) | m;
-        }
-
-        return g;
+    pub fn powerConsumption(self: *const Self) u64 {
+        return self.rows.gamma() * self.rows.epsilon();
     }
 
-    fn epsilon(self: *const DiagnosticReport) u64 {
-        var g: u64 = 0;
-        for (self.counts) |c| {
-            var m = c.min();
-            g = (g << 1) | m;
-        }
+    pub fn lifeSupport(self: *const Self) !u64 {
+        var gen = try self.rows.generator();
+        var scrub = try self.scrubber();
+        return gen * scrub;
+    }
 
-        return g;
+    fn scrubber(self: *const Self) !u64 {
+        return self.rows.gamma();
     }
 };
 
@@ -157,7 +185,7 @@ pub fn main() anyerror!void {
 
     const str = @embedFile("../input.txt");
     var d = try DiagnosticReport.load(allocator, str);
-    // defer allocator.free(d);
+    defer d.deinit();
 
     const stdout = std.io.getStdOut().writer();
 
@@ -168,12 +196,19 @@ pub fn main() anyerror!void {
     try stdout.print("Part 2: {d}\n", .{part2});
 }
 
-test "basic test" {
+test "part1 test" {
     const str = @embedFile("../test.txt");
     var d = try DiagnosticReport.load(test_allocator, str);
-    // defer test_allocator.free(d);
+    defer d.deinit();
 
     try expect(198 == d.powerConsumption());
+}
+
+test "part2 test" {
+    const str = @embedFile("../test.txt");
+    var d = try DiagnosticReport.load(test_allocator, str);
+    defer d.deinit();
+
     var l = try d.lifeSupport();
     try expect(230 == l);
 }
