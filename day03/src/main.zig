@@ -84,56 +84,60 @@ const RowSet = struct {
         return g;
     }
 
-    pub fn generator(self: *const Self) !u64 {
-        var valid: []const usize = undefined;
+    const GeneratorError = error{GenError};
 
-        var validList = std.ArrayList(usize).init(self.allocator);
-        defer validList.deinit();
-
-        for (self.rows) |_, idx| {
-            try validList.append(idx);
+    fn bitToChar(m: u64) u8 {
+        if (m == 1) {
+            return '1';
+        } else {
+            return '0';
         }
-        valid = validList.toOwnedSlice();
+    }
 
-        for (self.counts) |c, idx| {
-            std.debug.print("\nc={d}\n", .{c});
-            std.debug.print("\nREMAINING STRINGS:\n", .{});
+    pub fn generator(self: *const Self, bit_idx: usize) !u64 {
+        var valid = std.ArrayList([]const u8).init(self.allocator);
+        defer valid.deinit();
 
-            for (valid) |v| {
-                std.debug.print("\t{s}\n", .{self.rows[v]});
-            }
-            std.debug.print("\n\n", .{});
-            if (valid.len == 1) {
-                std.debug.print("\nFOUND MATCH: {s}\n", .{self.rows[valid[0]]});
-                // return row to number
-                return valid[0];
-            }
+        const c = self.counts[bit_idx];
 
-            var nextValid = std.ArrayList(usize).init(self.allocator);
-            defer nextValid.deinit();
-
-            var m = c.max();
-            var mStr: u8 = undefined;
-            if (m == 1) {
-                mStr = '1';
-            } else {
-                mStr = '0';
-            }
-            for (valid) |v| {
-                if (self.rows[v][idx] == mStr) {
-                    try nextValid.append(v);
-                }
-            }
-            // Allocator.free(valid);
-            valid = nextValid.toOwnedSlice();
-
-            if (valid.len == 1) {
-                // return row to number
-                std.debug.print("\nFOUND MATCH: {s}\n", .{self.rows[valid[0]]});
-                return valid[0];
+        const m = c.max();
+        const mStr = bitToChar(m);
+        for (self.rows) |r| {
+            if (r[bit_idx] == mStr) {
+                try valid.append(r);
             }
         }
-        return error{Oops};
+
+        if (valid.items.len == 1) {
+            var val = try std.fmt.parseInt(u64, valid.items[0], 2);
+            return val;
+        }
+        var rs = try RowSet.load(self.allocator, valid.items);
+        defer rs.deinit();
+        return rs.generator(bit_idx + 1);
+    }
+
+    pub fn scrubber(self: *const Self, bit_idx: usize) !u64 {
+        var valid = std.ArrayList([]const u8).init(self.allocator);
+        defer valid.deinit();
+
+        const c = self.counts[bit_idx];
+
+        const m = c.min();
+        const mStr = bitToChar(m);
+        for (self.rows) |r| {
+            if (r[bit_idx] == mStr) {
+                try valid.append(r);
+            }
+        }
+
+        if (valid.items.len == 1) {
+            var val = try std.fmt.parseInt(u64, valid.items[0], 2);
+            return val;
+        }
+        var rs = try RowSet.load(self.allocator, valid.items);
+        defer rs.deinit();
+        return rs.scrubber(bit_idx + 1);
     }
 };
 
@@ -154,7 +158,6 @@ const DiagnosticReport = struct {
         }
 
         var rowSet = try RowSet.load(allocator, rows.items);
-
         return Self{ .allocator = allocator, .rows = rowSet };
     }
 
@@ -167,13 +170,9 @@ const DiagnosticReport = struct {
     }
 
     pub fn lifeSupport(self: *const Self) !u64 {
-        var gen = try self.rows.generator();
-        var scrub = try self.scrubber();
+        var gen = try self.rows.generator(0);
+        var scrub = try self.rows.scrubber(0);
         return gen * scrub;
-    }
-
-    fn scrubber(self: *const Self) !u64 {
-        return self.rows.gamma();
     }
 };
 
