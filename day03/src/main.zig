@@ -16,7 +16,7 @@ const Count = struct {
     }
 
     pub fn min(self: *const Count) u64 {
-        if (self.zeros >= self.ones) {
+        if (self.zeros <= self.ones) {
             return 0;
         } else {
             return 1;
@@ -67,8 +67,10 @@ const DiagnosticReport = struct {
         self.allocator.free(self.rows);
     }
 
-    pub fn lifeSupport(self: *const DiagnosticReport) u64 {
-        return self.generator() * self.scrubber();
+    pub fn lifeSupport(self: *const DiagnosticReport) !u64 {
+        var gen = try self.generator();
+        var scrub = try self.scrubber();
+        return gen * scrub;
     }
 
     pub fn powerConsumption(self: *const DiagnosticReport) u64 {
@@ -77,7 +79,7 @@ const DiagnosticReport = struct {
 
     fn generator(self: *const DiagnosticReport) !u64 {
         var valid: []const usize = undefined;
-        defer Allocator.free(valid);
+        // defer Allocator.free(valid);
 
         var validList = std.ArrayList(usize).init(self.allocator);
         defer validList.deinit();
@@ -88,27 +90,41 @@ const DiagnosticReport = struct {
         valid = validList.toOwnedSlice();
 
         for (self.counts) |c, idx| {
-            if (valid.items.len == 1) {
+            std.debug.print("\nc={d}\n", .{c});
+            std.debug.print("\nREMAINING STRINGS:\n", .{});
+
+            for (valid) |v| {
+                std.debug.print("\t{s}\n", .{v});
+            }
+            std.debug.print("\n\n", .{});
+            if (valid.len == 1) {
                 // return row to number
-                return valid.items[0];
+                std.debug.print("\nFOUND MATCH: {s}\n", .{self.rows[valid[0]]});
+                return valid[0];
             }
 
             var nextValid = std.ArrayList(usize).init(self.allocator);
             defer nextValid.deinit();
 
             var m = c.max();
+            var mStr: u8 = undefined;
+            if (m == 1) {
+                mStr = '1';
+            } else {
+                mStr = '0';
+            }
             for (valid) |v| {
-                if (self.rows.items[v].items[idx] == m) {
+                if (self.rows[v][idx] == mStr) {
                     try nextValid.append(v);
                 }
             }
-            Allocator.free(valid);
+            // Allocator.free(valid);
             valid = nextValid.toOwnedSlice();
         }
         return self.gamma();
     }
 
-    fn scrubber(self: *const DiagnosticReport) u64 {
+    fn scrubber(self: *const DiagnosticReport) !u64 {
         return self.gamma();
     }
 
@@ -148,7 +164,7 @@ pub fn main() anyerror!void {
     const part1 = d.powerConsumption();
     try stdout.print("Part 1: {d}\n", .{part1});
 
-    const part2 = d.lifeSupport();
+    const part2 = try d.lifeSupport();
     try stdout.print("Part 2: {d}\n", .{part2});
 }
 
@@ -158,5 +174,6 @@ test "basic test" {
     // defer test_allocator.free(d);
 
     try expect(198 == d.powerConsumption());
-    try expect(230 == d.lifeSupport());
+    var l = try d.lifeSupport();
+    try expect(230 == l);
 }
