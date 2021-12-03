@@ -87,7 +87,7 @@ pub fn main() anyerror!void {
 
     const str = @embedFile("../input.txt");
     var c = try Course.load(allocator, str);
-    // defer allocator.free(c);
+    defer c.deinit();
 
     const stdout = std.io.getStdOut().writer();
 
@@ -101,7 +101,7 @@ pub fn main() anyerror!void {
 test "basic test" {
     const str = @embedFile("../test.txt");
     var c = try Course.load(test_allocator, str);
-    // defer test_allocator.free(c);
+    defer c.deinit();
 
     try expect(150 == c.follow());
     try expect(900 == c.followAim());
