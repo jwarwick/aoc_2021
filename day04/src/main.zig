@@ -15,6 +15,7 @@ const Board = struct {
     allocator: Allocator,
     cells: []Cell,
     map: std.AutoHashMap(u64, *Cell),
+    hasWon: bool = false,
 
     pub fn load(allocator: Allocator, rows: [][]const u8) !Self {
         var cells = std.ArrayList(Cell).init(allocator);
@@ -170,6 +171,29 @@ const Game = struct {
         std.debug.print("\nNo board won!\n", .{});
         return 0;
     }
+
+    pub fn worstBoard(self: *Self) !u64 {
+        const boardCount = self.boards.len;
+        var winCount: u64 = 0;
+
+        for (self.numbers) |n| {
+            for (self.boards) |*b| {
+                if (!b.hasWon) {
+                    if (b.addNumber(n)) {
+                        if (winCount == (boardCount - 1)) {
+                            const sum = b.unseenSum();
+                            return (n * sum);
+                        } else {
+                            b.hasWon = true;
+                            winCount += 1;
+                        }
+                    }
+                }
+            }
+        }
+        std.debug.print("\nNo board won!\n", .{});
+        return 0;
+    }
 };
 
 pub fn main() anyerror!void {
@@ -187,8 +211,8 @@ pub fn main() anyerror!void {
     const part1 = try g.winningScore();
     try stdout.print("Part 1: {d}\n", .{part1});
 
-    // const part2 = try d.lifeSupport();
-    // try stdout.print("Part 2: {d}\n", .{part2});
+    const part2 = try g.worstBoard();
+    try stdout.print("Part 2: {d}\n", .{part2});
 }
 
 test "part1 test" {
@@ -200,11 +224,11 @@ test "part1 test" {
     try expect(4512 == score);
 }
 
-// test "part2 test" {
-//     const str = @embedFile("../test.txt");
-//     var d = try DiagnosticReport.load(test_allocator, str);
-//     defer d.deinit();
-//
-//     var l = try d.lifeSupport();
-//     try expect(230 == l);
-// }
+test "part2 test" {
+    const str = @embedFile("../test.txt");
+    var g = try Game.load(test_allocator, str);
+    defer g.deinit();
+
+    const score = try g.worstBoard();
+    try expect(1924 == score);
+}
