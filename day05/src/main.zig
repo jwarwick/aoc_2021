@@ -21,7 +21,7 @@ const Map = struct {
     allocator: Allocator,
     map: std.AutoHashMap(u64, u64),
 
-    pub fn load(allocator: Allocator, str: []const u8) !Self {
+    pub fn load(allocator: Allocator, str: []const u8, diagonals: bool) !Self {
         var map = std.AutoHashMap(u64, u64).init(allocator);
         var iter = std.mem.split(u8, str, "\n");
 
@@ -35,6 +35,18 @@ const Map = struct {
                     try insertVertical(&map, p1, p2);
                 } else if (p1.y == p2.y) {
                     try insertHorizontal(&map, p1, p2);
+                } else if (diagonals) {
+                    var left = p1;
+                    var right = p2;
+                    if (p2.x < p1.x) {
+                        left = p2;
+                        right = p1;
+                    }
+                    if (left.y < right.y) {
+                        try insertDownDiagonal(&map, left, right);
+                    } else {
+                        try insertUpDiagonal(&map, left, right);
+                    }
                 }
             }
         }
@@ -49,6 +61,28 @@ const Map = struct {
     fn insertPoint(map: *std.AutoHashMap(u64, u64), p: u64) !void {
         var curr = map.get(p) orelse 0;
         try map.put(p, curr + 1);
+    }
+
+    fn insertUpDiagonal(map: *std.AutoHashMap(u64, u64), p1: Point, p2: Point) anyerror!void {
+        var y = p1.y;
+        var x = p1.x;
+        while (x <= p2.x) {
+            try insertPoint(map, offset(y, x));
+            x += 1;
+            if (y > 0) {
+                y -= 1;
+            }
+        }
+    }
+
+    fn insertDownDiagonal(map: *std.AutoHashMap(u64, u64), p1: Point, p2: Point) anyerror!void {
+        var y = p1.y;
+        var x = p1.x;
+        while (x <= p2.x) {
+            try insertPoint(map, offset(y, x));
+            x += 1;
+            y += 1;
+        }
     }
 
     fn insertHorizontal(map: *std.AutoHashMap(u64, u64), p1: Point, p2: Point) anyerror!void {
@@ -92,16 +126,6 @@ const Map = struct {
     fn offset(colIdx: u64, rowIdx: u64) u64 {
         return ((rowIdx * 1000) + colIdx);
     }
-
-    // pub fn addNumber(self: *Self, num: u64) bool {
-    //     var c = self.map.get(num);
-    //     if (c != null) {
-    //         var cPtr = c.?;
-    //         cPtr.seen = true;
-    //         return self.checkWin();
-    //     }
-    //     return false;
-    // }
 };
 
 pub fn main() anyerror!void {
@@ -111,20 +135,35 @@ pub fn main() anyerror!void {
     const allocator = gpa.allocator();
 
     const str = @embedFile("../input.txt");
-    var m = try Map.load(allocator, str);
+    var m = try Map.load(allocator, str, false);
     defer m.deinit();
 
     const stdout = std.io.getStdOut().writer();
 
     const part1 = try m.twoOverlaps();
     try stdout.print("Part 1: {d}\n", .{part1});
+
+    var m2 = try Map.load(allocator, str, true);
+    defer m2.deinit();
+
+    const part2 = try m2.twoOverlaps();
+    try stdout.print("Part 2: {d}\n", .{part2});
 }
 
 test "part1 test" {
     const str = @embedFile("../test.txt");
-    var m = try Map.load(test_allocator, str);
+    var m = try Map.load(test_allocator, str, false);
     defer m.deinit();
 
     const score = try m.twoOverlaps();
     try expect(5 == score);
+}
+
+test "part2 test" {
+    const str = @embedFile("../test.txt");
+    var m = try Map.load(test_allocator, str, true);
+    defer m.deinit();
+
+    const score = try m.twoOverlaps();
+    try expect(12 == score);
 }
