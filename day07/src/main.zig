@@ -6,17 +6,17 @@ const Allocator = std.mem.Allocator;
 const Crabs = struct {
     const Self = @This();
     allocator: Allocator,
-    robots: []u64,
+    robots: []i64,
 
     pub fn load(allocator: Allocator, str: []const u8) !Self {
-        var robots = std.ArrayList(u64).init(allocator);
+        var robots = std.ArrayList(i64).init(allocator);
         defer robots.deinit();
 
         var iter = std.mem.tokenize(u8, str, ",");
         while (iter.next()) |num| {
             if (num.len != 0) {
                 const trimmed = std.mem.trimRight(u8, num, "\n");
-                const value = try std.fmt.parseInt(u64, trimmed, 10);
+                const value = try std.fmt.parseInt(i64, trimmed, 10);
                 try robots.append(value);
             }
         }
@@ -28,49 +28,37 @@ const Crabs = struct {
         self.allocator.free(self.robots);
     }
 
-    pub fn cheapestAlignment(self: *Self) !u64 {
-        std.sort.sort(u64, self.robots, {}, comptime std.sort.asc(u64));
-        const medianIdx = self.robots.len / 2;
-        const median: u64 = self.robots[medianIdx];
-        var total: u64 = 0;
+    pub fn cheapestAlignment(self: *Self) !i64 {
+        std.sort.sort(i64, self.robots, {}, comptime std.sort.asc(i64));
+        const medianIdx = @divFloor(self.robots.len, 2);
+        const median: i64 = self.robots[medianIdx];
+        var total: i64 = 0;
         for (self.robots) |r| {
-            if (r > median) {
-                total += r - median;
-            } else {
-                total += median - r;
-            }
+            total += try std.math.absInt(r - median);
         }
         return total;
     }
 
-    fn moveCost(dist: u64) u64 {
-        return ((dist + 1) * dist) / 2;
+    fn moveCost(dist: i64) i64 {
+        return @divFloor((dist + 1) * dist, 2);
     }
 
-    fn absDiff(a: u64, b: u64) u64 {
-        if (a > b) {
-            return a - b;
-        } else {
-            return b - a;
-        }
-    }
-
-    fn costAtPoint(locs: []u64, point: u64) u64 {
-        var total: u64 = 0;
+    fn costAtPoint(locs: []i64, point: i64) !i64 {
+        var total: i64 = 0;
         for (locs) |l| {
-            total += moveCost(absDiff(l, point));
+            total += moveCost(try std.math.absInt(l - point));
         }
         return total;
     }
 
-    pub fn followGradient(locs: []u64, currLoc: u64, cost: u64) u64 {
-        var costLeft: u64 = 0;
-        if (currLoc == 0) {
-            costLeft = 100000000;
+    pub fn followGradient(locs: []i64, currLoc: i64, cost: i64) !i64 {
+        var costLeft: i64 = 0;
+        if (currLoc <= 0) {
+            costLeft = std.math.maxInt(i64);
         } else {
-            costLeft = costAtPoint(locs, currLoc - 1);
+            costLeft = try costAtPoint(locs, currLoc - 1);
         }
-        const costRight = costAtPoint(locs, currLoc + 1);
+        const costRight = try costAtPoint(locs, currLoc + 1);
         if (cost <= costLeft and cost <= costRight) {
             return cost;
         }
@@ -82,11 +70,11 @@ const Crabs = struct {
         }
     }
 
-    pub fn cheapestAlignmentWithCost(self: *Self) !u64 {
-        std.sort.sort(u64, self.robots, {}, comptime std.sort.asc(u64));
+    pub fn cheapestAlignmentWithCost(self: *Self) !i64 {
+        std.sort.sort(i64, self.robots, {}, comptime std.sort.asc(i64));
         const medianIdx = self.robots.len / 2;
-        const median: u64 = self.robots[medianIdx];
-        const cost = costAtPoint(self.robots, median);
+        const median: i64 = self.robots[medianIdx];
+        const cost = try costAtPoint(self.robots, median);
         return followGradient(self.robots, median, cost);
     }
 };
@@ -116,6 +104,7 @@ test "part1 test" {
     defer c.deinit();
 
     const score = try c.cheapestAlignment();
+    std.debug.print("\nScore={d}\n", .{score});
     try expect(37 == score);
 }
 
