@@ -98,3 +98,9 @@ The five lines' completion strings have total scores as follows:
 Autocomplete tools are an odd bunch: the winner is found by sorting all of the scores and then taking the middle score. (There will always be an odd number of scores to consider.) In this example, the middle score is 288957 because there are the same number of scores smaller and larger than it.
 
 Find the completion string for each incomplete line, score the completion strings, and sort the scores. What is the middle score?
+
+Your puzzle answer was 3049320156.
+
+Both parts of this puzzle are complete! They provide two gold stars: **
+
+
