@@ -67,6 +67,18 @@ const Display = struct {
         }
         return total;
     }
+
+    fn sumOutput(input: []const u8, output: []const u8) !i64 {
+
+    }
+
+    pub fn outputSum(self: Self) !i64 {
+        var total: i64 = 0;
+        for (self.inputs) |in, idx| {
+            total += try sumOutput(in, self.outputs[idx]);
+        }
+        return total;
+    }
 };
 
 pub fn main() anyerror!void {
@@ -83,6 +95,9 @@ pub fn main() anyerror!void {
 
     const part1 = try d.easyCount();
     try stdout.print("Part 1: {d}\n", .{part1});
+
+    const part2 = try d.outpuSum();
+    try stdout.print("Part 2: {d}\n", .{part2});
 }
 
 test "part1 test" {
@@ -93,4 +108,14 @@ test "part1 test" {
     const score = try d.easyCount();
     std.debug.print("\nScore={d}\n", .{score});
     try expect(26 == score);
+}
+
+test "part2 test" {
+    const str = @embedFile("../test.txt");
+    var d = try Display.load(test_allocator, str);
+    defer d.deinit();
+
+    const score = try d.outputSum();
+    std.debug.print("\nScore={d}\n", .{score});
+    try expect(61229 == score);
 }
